@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bánh Xe May Mắn - Chúc Mừng</title>
+  <script src="https://cdn.jsdelivr.net/npm/spin-wheel@5.0.2/dist/spin-wheel-iife.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #f0f0f0; padding: 20px; }
+    h1 { color: #333; }
+    textarea { width: 400px; height: 150px; margin: 20px; padding: 10px; font-size: 16px; }
+    button { padding: 12px 30px; font-size: 18px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background: #45a049; }
+    .wheel-container { width: 500px; height: 500px; margin: 20px auto; border: 2px solid #333; border-radius: 50%; overflow: hidden; background: white; }
+    #status { font-size: 24px; margin: 20px; color: #d32f2f; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Bánh Xe May Mắn</h1>
+  <p>Nhập danh sách tên (mỗi tên một dòng), rồi nhấn "Quay"</p>
+  <textarea id="names" placeholder="Ví dụ:&#10;Lan&#10;Minh&#10;Hương&#10;..."></textarea><br>
+  <button onclick="spinWheel()">Quay Bánh Xe</button>
+  <div class="wheel-container"></div>
+  <div id="status"></div>
+
+  <!-- Nhạc nền (thay src bằng link nhạc mp3 của bạn, ví dụ từ Pixabay hoặc upload lên repo) -->
+  <audio id="bgMusic" loop>
+    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+    <!-- Nếu upload file: src="music.mp3" (upload music.mp3 vào repo) -->
+  </audio>
+
+  <script>
+    let wheel = null;
+    const status = document.getElementById('status');
+    const music = document.getElementById('bgMusic');
+
+    function spinWheel() {
+      const input = document.getElementById('names').value.trim();
+      if (!input) return alert('Vui lòng nhập ít nhất 2 tên!');
+
+      const names = input.split('\n').map(n => n.trim()).filter(n => n);
+      if (names.length < 2) return alert('Cần ít nhất 2 tên để quay!');
+
+      // Xóa bánh xe cũ nếu có
+      const container = document.querySelector('.wheel-container');
+      container.innerHTML = '';
+
+      // Tạo bánh xe
+      wheel = new Wheel(container, {
+        items: names.map(name => ({ label: name })),
+        radius: 0.9,
+        itemLabelFontSizeMax: 30,
+        itemLabelRadius: 0.8,
+        rotationSpeedMax: 300,
+        rotationResistance: -0.02, // Tự chậm dần
+        pointerAngle: 0, // Con trỏ ở trên
+      });
+
+      // Chọn ngẫu nhiên người thắng
+      const winnerIndex = Math.floor(Math.random() * names.length);
+
+      // Quay đến người thắng (5 giây, 5 vòng, chiều thuận)
+      wheel.spinToItem(winnerIndex, 5000, true, 5, 1);
+
+      // Bật nhạc nền khi quay (chính sách browser có thể yêu cầu tương tác trước)
+      music.play().catch(() => console.log('Autoplay bị chặn, click lại nếu cần'));
+
+      status.textContent = 'Đang quay...';
+
+      // Khi bánh xe dừng
+      wheel.onRest = () => {
+        const winner = names[winnerIndex];
+        status.textContent = `Chúc mừng ${winner}!`;
+        
+        // Giọng đọc AI (tiếng Việt nếu browser hỗ trợ)
+        if ('speechSynthesis' in window) {
+          const msg = new SpeechSynthesisUtterance(`Chúc mừng bạn ${winner}`);
+          msg.lang = 'vi-VN'; // Tiếng Việt
+          msg.volume = 1;
+          msg.rate = 1;
+          msg.pitch = 1;
+          speechSynthesis.speak(msg);
+        } else {
+          alert(`Chúc mừng bạn ${winner}! (Trình duyệt không hỗ trợ giọng đọc)`);
+        }
+
+        // Dừng nhạc nếu muốn (hoặc để loop)
+        // music.pause();
+      };
+    }
+  </script>
+</body>
+</html>
