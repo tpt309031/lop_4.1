@@ -4,25 +4,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bánh Xe May Mắn - Danh Sách Cố Định</title>
-  <script src="https://cdn.jsdelivr.net/npm/spin-wheel@5.0.2/dist/spin-wheel-iife.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; background: #f0f0f0; padding: 20px; }
+    body { font-family: Arial, sans-serif; text-align: center; background: #f0f0f0; padding: 20px; margin: 0; }
     h1 { color: #333; }
     textarea { width: 500px; height: 200px; margin: 20px; padding: 10px; font-size: 16px; }
-    button { padding: 12px 30px; font-size: 18px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
-    button:hover { background: #45a049; }
-    button#removeBtn { background: #f44336; } button#removeBtn:hover { background: #da190b; }
-    button#closeBtn { background: #2196F3; } button#closeBtn:hover { background: #0b7dda; }
-    button#spinBtn { background: #FF5722; }
+    button { padding: 12px 30px; font-size: 18px; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+    button#initBtn { background: #4CAF50; }
+    button#initBtn:hover { background: #45a049; }
     button#reloadBtn { background: #FF9800; }
-    .wheel-container { width: 500px; height: 500px; margin: 20px auto; border: 2px solid #333; border-radius: 50%; overflow: hidden; background: white; }
-    #status { font-size: 24px; margin: 20px; color: #d32f2f; font-weight: bold; min-height: 50px; }
+    button#spinBtn { background: #FF5722; }
+    button#removeBtn { background: #f44336; }
+    button#closeBtn { background: #2196F3; }
+    .wheel-container { 
+      width: 500px; height: 500px; 
+      margin: 20px auto; 
+      border: 3px solid #333; border-radius: 50%; 
+      overflow: hidden; background: white; 
+      box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    }
+    #status { font-size: 24px; margin: 20px; color: #d32f2f; font-weight: bold; min-height: 60px; }
     #resultButtons { margin: 10px; }
+    #debug { color: red; font-weight: bold; }
   </style>
 </head>
 <body>
-  <h1>Bánh Xe May Mắn </h1>
-  <p>Danh sách đã được cố định sẵn (bạn có thể chỉnh sửa nếu muốn). Nhấn "Tạo Vòng Quay" để bắt đầu. Khi quay trúng, có giọng đọc AI và nút Xóa/Giữ.</p>
+  <h1>Bánh Xe May Mắn (Danh Sách Cố Định)</h1>
+  <p>Danh sách đã cố định. Trang tự load bánh xe khi mở. Nếu không hiện, kiểm tra console (F12 > Console) xem lỗi gì (ví dụ: Wheel not defined hoặc CDN load fail).</p>
   <textarea id="names">Nguyễn Khánh An
 Bùi Trâm Anh
 Hà Việt Anh
@@ -64,7 +71,7 @@ Nguyễn Thị Ánh Tuyết
 Lương Vỹ Tường
 Phan Mạnh Tường</textarea><br>
 
-  <button onclick="initWheel()">Tạo Vòng Quay (Load Danh Sách)</button>
+  <button id="initBtn" onclick="initWheel()">Tải Lại Vòng Quay (nếu cần)</button>
   <button id="reloadBtn" onclick="reloadPage()" style="display: none;">Reset Về Danh Sách Ban Đầu</button>
   <button id="spinBtn" onclick="spinWheel()" style="display: none;">Quay Bánh Xe</button>
 
@@ -74,14 +81,17 @@ Phan Mạnh Tường</textarea><br>
     <button id="removeBtn" onclick="removeWinner()">XÓA Tên Này</button>
     <button id="closeBtn" onclick="closeResult()">ĐÓNG (Giữ Nguyên)</button>
   </div>
+  <div id="debug"></div>
 
-  <!-- Nhạc nền (thay src nếu bạn upload file khác, ví dụ: nhac-nen.mp3 ở root repo) -->
+  <!-- Nhạc nền -->
   <audio id="bgMusic" loop>
     <source src="fun-drops-children-corporate-pop-ads-306046.mp3" type="audio/mpeg">
-    Your browser does not support the audio element.
+    Trình duyệt không hỗ trợ audio.
   </audio>
 
-  <script>
+  <script type="module">
+    import { Wheel } from 'https://cdn.jsdelivr.net/npm/spin-wheel@5.0.2/dist/spin-wheel-esm.js';
+
     let wheel = null;
     let initialNames = [];
     let currentNames = [];
@@ -93,88 +103,111 @@ Phan Mạnh Tường</textarea><br>
     const container = document.querySelector('.wheel-container');
     const reloadBtn = document.getElementById('reloadBtn');
     const spinBtn = document.getElementById('spinBtn');
+    const debug = document.getElementById('debug');
 
-    function initWheel(auto = false) {
+    function initWheel() {
+      debug.textContent = ''; // Xóa debug cũ
       const input = document.getElementById('names').value.trim();
-      if (!input) return alert('Danh sách trống!');
+      if (!input) {
+        debug.textContent = 'Danh sách trống!';
+        return;
+      }
 
       initialNames = input.split('\n').map(n => n.trim()).filter(n => n);
-      if (initialNames.length < 2) return alert('Cần ít nhất 2 tên!');
+      if (initialNames.length < 2) {
+        debug.textContent = 'Cần ít nhất 2 tên!';
+        return;
+      }
 
       currentNames = [...initialNames];
       resetWheel();
 
       reloadBtn.style.display = 'inline-block';
       spinBtn.style.display = 'inline-block';
-
-      if (!auto) {
-        status.textContent = 'Danh sách đã load! Nhấn "Quay Bánh Xe" để bắt đầu.';
-      }
+      status.textContent = 'Vòng quay đã load! Nhấn "Quay Bánh Xe".';
     }
 
     function resetWheel() {
       if (currentNames.length < 2) {
-        alert('Chỉ còn 1 người! Tự động reset về danh sách ban đầu.');
+        alert('Chỉ còn 1 người! Tự động reset.');
         currentNames = [...initialNames];
       }
 
-      container.innerHTML = '';
+      container.innerHTML = ''; // Xóa cũ
       status.textContent = '';
       resultButtons.style.display = 'none';
       winnerIndex = -1;
       winnerName = '';
 
       if (currentNames.length < 2) {
-        status.textContent = 'Cần ít nhất 2 tên để quay!';
+        status.textContent = 'Cần ít nhất 2 tên!';
         return;
       }
 
-      wheel = new Wheel(container, {
+      const props = {
         items: currentNames.map(name => ({ label: name })),
-        radius: 0.9,
+        radius: 0.95,
         itemLabelFontSizeMax: 30,
         itemLabelRadius: 0.8,
-        rotationSpeedMax: 300,
-        rotationResistance: -0.02,
+        itemLabelRadiusMax: 0.85,
+        rotationResistance: -35,  // Giá trị chuẩn để wheel chậm dần tự nhiên
         pointerAngle: 0,
-      });
+        isInteractive: true,
+        onRest: (event) => {
+          // Khi dừng, event.currentIndex nên khớp winnerIndex
+          status.innerHTML = `Chúc mừng ${winnerName}! <br><small>(Còn lại ${currentNames.length - 1} người)</small>`;
+          resultButtons.style.display = 'block';
 
-      music.play().catch(() => console.log('Autoplay bị chặn, click quay để bật'));
+          if ('speechSynthesis' in window) {
+            const msg = new SpeechSynthesisUtterance(`Chúc mừng bạn ${winnerName}`);
+            msg.lang = 'vi-VN';
+            msg.volume = 1; msg.rate = 1; msg.pitch = 1;
+            speechSynthesis.speak(msg);
+          } else {
+            alert(`Chúc mừng bạn ${winnerName}!`);
+          }
+        }
+      };
+
+      wheel = new Wheel(container, props);
+
+      // Debug
+      if (wheel) {
+        debug.textContent = 'Bánh xe đã tạo thành công! Nếu không thấy, kiểm tra console (F12).';
+        console.log('Wheel instance:', wheel);
+      } else {
+        debug.textContent = 'Lỗi tạo Wheel! Kiểm tra console.';
+      }
+
+      // Không play music tự động nữa (browser block), play khi quay
     }
 
     function spinWheel() {
-      if (currentNames.length < 2) return alert('Cần ít nhất 2 tên!');
+      if (!wheel || currentNames.length < 2) return alert('Vòng quay chưa load hoặc không đủ tên!');
 
       winnerIndex = Math.floor(Math.random() * currentNames.length);
       winnerName = currentNames[winnerIndex];
 
-      wheel.spinToItem(winnerIndex, 5000, true, 5, 1);
+      // Play nhạc khi click quay (để bypass autoplay block)
+      music.play().catch(e => console.log('Music play error:', e));
+
+      wheel.spinToItem(
+        winnerIndex,
+        5000,   // 5 giây
+        true,   // spinToCenter
+        5,      // 5 vòng
+        1       // clockwise
+      );
 
       status.textContent = 'Đang quay...';
       resultButtons.style.display = 'none';
-
-      wheel.onRest = () => {
-        status.innerHTML = `Chúc mừng ${winnerName}! <br><small>(Còn lại ${currentNames.length - 1} người trong danh sách)</small>`;
-        resultButtons.style.display = 'block';
-
-        if ('speechSynthesis' in window) {
-          const msg = new SpeechSynthesisUtterance(`Chúc mừng bạn ${winnerName}`);
-          msg.lang = 'vi-VN';
-          msg.volume = 1;
-          msg.rate = 1;
-          msg.pitch = 1;
-          speechSynthesis.speak(msg);
-        } else {
-          alert(`Chúc mừng bạn ${winnerName}!`);
-        }
-      };
     }
 
     function removeWinner() {
       if (winnerIndex !== -1) {
         currentNames.splice(winnerIndex, 1);
         resultButtons.style.display = 'none';
-        resetWheel(); // Tạo lại wheel với list mới
+        resetWheel();
       }
     }
 
@@ -190,10 +223,10 @@ Phan Mạnh Tường</textarea><br>
       }
     }
 
-    // Tự động load danh sách khi trang mở (cố định luôn)
-    window.onload = function() {
-      initWheel(true); // auto = true để không alert
-    };
+    // Tự động load khi trang mở
+    window.addEventListener('load', () => {
+      initWheel();
+    });
   </script>
 </body>
 </html>
